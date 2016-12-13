@@ -1,0 +1,10 @@
+
+;; (defun compile-if (condition true-expr false-expr)
+;;   (with-object (send StringBuilder 'newInstance)
+;;     (append "if (")
+;;     (append (compile-expr condition))
+;;     (append ") return ")
+;;     (append (compile-expr true-expr))
+;;     (append "; else ")
+;;     (append (compile-expr false-expr))
+;;     (append "; ")))

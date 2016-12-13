@@ -1,0 +1,62 @@
+;-*- Mode: Lisp -*-
+
+(require 'java)
+
+(defun fetchity (lst)
+  (dolist (i lst)
+    (set i (send Class 'forName
+                 (with-output-to-string (*standard-output*)
+                   (write-string "mjc.")
+                   (prin1 i))))))
+
+(fetchity '(Identifier
+            AST
+            Position
+            Program
+            MainClass
+            ClassDecl
+            VarDecl
+            MethodDecl
+            Type
+            IntArrayType
+            LongArrayType
+            IntType
+            LongType
+            BooleanType
+            ClassType
+            VoidType
+            Stmt
+            BlockStmt
+            IfStmt
+            WhileStmt
+            PrintLnStmt
+            AssignStmt
+            ArrayAssignStmt
+            Exp
+            BinOp
+            ArrayDerefExp
+            ArrayLengthExp
+            MethodCallExp
+            AnnotatedMethodCallExp
+            MethodCallExp
+            IntLiteral
+            LongLiteral
+            BooleanLiteral
+            VariableAccessExp
+            ThisExp
+            NewIntArrayExp
+            NewLongArrayExp
+            NewExp
+            NotExp
+            CastExp
+            ExpList
+            MiniJavaLex
+            MiniJavaParse
+            SemanticAnalysis
+            EmitJasmin
+            Util
+            Pair
+            JVMMain
+            ))
+
+(provide 'minijava)

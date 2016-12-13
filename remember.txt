@@ -1,0 +1,34 @@
+
+
+
+why? :
+>> (send Procedure 'isInstance (Class 'forName))
+t
+>> (send Procedure 'isInstance Class)
+nil
+
+
+
+----
+
+Argh wut? Kan bara "\"" en gång utan att varva det med ngt annat?
+
+
+----
+
+!FIXED!:
+
+FEL!!!
+
+(send (field-value System 'out) 'println "hej")
+true
+nil
+
+
+--------------------------------
+
+(defun foo () 'hej)
+
+(foo 1 2 3)
+
+ska vara ett fel!!

@@ -1,0 +1,449 @@
+/*
+** TODO: * Fix up exceptions in places to be nicer somehow. Especially
+**         for read-related stuffs
+**       * eql? needn't be primitive, given more, other, primitives: type? or something
+**       * use long more?
+**       * maybe solve nil/null-deficiency by making readSymbol return null for symbol nil (instead of the other path to make
+**         nil separate from null, which caused java type mayhem)
+*/
+
+import java.lang.Exception;
+import java.lang.RuntimeException;
+import java.util.Scanner;
+import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.io.IOException;
+import java.lang.StringBuilder;
+import java.util.Stack;
+
+public class ljsp
+{
+    public static final Symbol t              = intern("t");
+    public static final Symbol nil            = intern("nil");
+    public static final Symbol standardOutput = intern("*standard-output*");
+    public static final Symbol standardInput  = intern("*standard-input*");
+    public static final Symbol lambda         = intern("lambda");
+    public static final Symbol flambda        = intern("flambda");
+    public static final Symbol quote          = intern("quote");
+    public static final Symbol _if            = intern("if");
+    public static final Symbol macro          = intern("macro");
+
+    // KLUDGE: since nil isn't separated from null this is used in a lot of places instead of obj.toString
+    public static String toStringOrNull(LispObject obj) { return (obj != null) ? obj.toString() : "null"; }
+
+    // FIXME?: Numbers aren't copied when passed to functions, or are they?, or need they? GAH!
+    // TODO: Macros, done, but strangely. Maybe I should just go for fexprs and implement macros with them.
+    //         Maybe i should displace macros from java, as an optimization.
+    //       Rest-parameter (probably easiest with dotted-list syntax)
+    //       Someday I might want a trampoline
+    public static LispObject eval(LispObject obj)
+    {
+        if (obj == null)
+            return null;
+        else if (obj instanceof Symbol)
+            return ((Symbol)obj).value;
+        else if (obj instanceof Cons)
+        {
+            Cons list = (Cons)obj;
+
+            if (list.car == _if) {
+                LispObject res = eval(((Cons)list.cdr).car); // (eval (cadr list))
+                if (res != null && res != nil)              // KLUDGE: since nil is not seperated from null but sometimes is. GAH!
+                    return eval(((Cons)((Cons)list.cdr).cdr).car); // (eval (caddr list))
+                else
+                    return ((Cons)((Cons)list.cdr).cdr).cdr != null ? eval(((Cons)((Cons)((Cons)list.cdr).cdr).cdr).car) : null; }
+            else if (list.car == quote)
+                return ((Cons)list.cdr).car;                // (cadr list)
+            else if (list.car == lambda || list.car == flambda || list.car == macro)
+                return list;                                // Lambdas, flambdas and macros are self-quoting 
+            else /* apply-proc sorta */
+            {
+                LispObject first = eval(list.car);
+                if (first instanceof Cons) {
+                    Cons f1rst = (Cons)first;               // Java's being stupid, not letting me reuse the identifier "first"
+                    if (f1rst.car == lambda || f1rst.car == flambda) {
+                        Cons lambdaVars = (Cons)((Cons)f1rst.cdr).car; // (cadr f1rst)
+                        Cons lambdaBody = (Cons)((Cons)f1rst.cdr).cdr; // (cddr f1rst)
+                        Cons argList    = (Cons)list.cdr;              // (cdr list)
+                        LispObject[] save = null, args;
+                        if (lambdaVars != null) {
+                            int numArgs = argList.length();
+                            if (lambdaVars.length() != numArgs) throw new RuntimeException("Garh!!! Wrong number of args or something!");
+                            save = new LispObject[numArgs];
+                            args = new LispObject[numArgs];
+                            int i = 0;
+                            for (Cons c = lambdaVars; c != null; c = (Cons)c.cdr) { // Save old values, eval new (or not if we're a fexpr)
+                                save[i] = ((Symbol)c.car).value;
+                                args[i++] = (f1rst.car == flambda) ? argList.car : eval(argList.car); // FIXME: Possible optimization: unroll if into two for-loops
+                                argList = (Cons)argList.cdr; }
+                            i = 0;
+                            for (Cons c = lambdaVars; c != null; c = (Cons)c.cdr) ((Symbol)c.car).value = args[i++]; /* insert new values */ } 
+                        for (; lambdaBody.cdr != null; lambdaBody = (Cons)lambdaBody.cdr) eval(lambdaBody.car); // Eval body sequentially
+                        LispObject result = eval(lambdaBody.car);                                               // Eval last form in lambda body
+                        if (lambdaVars != null) {
+                            int i = 0;
+                            for (Cons c = lambdaVars; c != null; c = (Cons)c.cdr) ((Symbol)c.car).value = save[i++]; }
+                        return result; }
+                    else if (f1rst.car /* (car f1rst) */ == macro) // KLUDGE: kinda strange implementation of macro, huh?
+                        return eval(eval(cons(cons(lambda, f1rst.cdr), cons(cons(quote, cons(list, null)), null))));
+                    else
+                        throw new RuntimeException("You can't just pretend lists to be functions, when they aren't"); }
+                else if (first instanceof LispSubr) {
+                    LispSubr subr = (LispSubr)first;
+                    LispObject[] objects = new LispObject[list.length()];
+                    int i = 0;
+                    for (Cons c = (Cons)list.cdr; c != null; c = (Cons)c.cdr)
+                        objects[i++] = eval(c.car);
+                    return subr.run(objects); }
+                else
+                    throw new RuntimeException("Dina fiskar är dåliga. " + toStringOrNull(obj)); 
+            }
+        }
+        else
+            return obj;
+    }
+    public static LispObject print(LispObject obj, LispStream stream) {
+        LispStream s = (stream != null) ? stream : (LispStream)standardOutput.value;
+        if (obj != null) obj.printObject(s);
+        else             s.printJavaString("null");                      // TODO: change this to say nil, but it is now, for reasons, different
+        s.terpri();
+        return obj; }
+    public  static Cons       cons(LispObject car, LispObject cdr)       { return new Cons(car, cdr);                                                   }
+    public  static LispObject car(Cons list)                             { return (list == null) ? null : list.car;                                     }
+    public  static LispObject cdr(Cons list)                             { return (list == null) ? null : list.cdr;                                     }
+    private static Symbol     intern(String str)                         { return (new Symbol(str)).intern();                                           }
+    public  static LispObject read(LispStream stream) throws IOException { return ((stream != null) ? stream : (LispStream)standardInput.value).read(); }
+    public  static LispObject eq (LispObject obj1, LispObject obj2)      { return obj1 == obj2 ? t : null;                                              }
+    public  static Cons       symbols()                                  { return Symbol.getSymbols();                                                  }
+    public  static LispObject symbolValue(Symbol sbl)                    { return sbl.value;                                                            }
+    public  static LispObject atom(LispObject obj)                       { return (obj instanceof Cons) ? null : t;                                     }
+    private static long genSymCounter = 0;
+    public  static LispObject gensym()                                   { return new Symbol("G" + genSymCounter++);                                    }
+    public  static LispObject eql(LispObject a, LispObject b)            { return !a.getClass().isInstance(b) ? null :
+                                                                                  (a instanceof LispNumber)   ? (((LispNumber)a).equals((LispNumber)b) ? t : null) :
+                                                                                                                eq(a, b); }
+
+    public static void initEnvironment()
+    {
+        t.value = t;
+        nil.value = null;                                   // FIXME: somehow make distinct from null
+        
+        standardOutput.value = new LispStream(null     , System.out);
+        standardInput.value  = new LispStream(System.in, null);
+        
+        intern("cons").value         = new LispSubr("cons")         { public LispObject run (LispObject[] o) { return cons(o[0], o[1]);                                    }};
+        intern("car").value          = new LispSubr("car")          { public LispObject run (LispObject[] o) { return car((Cons)o[0]);                                     }};
+        intern("cdr").value          = new LispSubr("cdr")          { public LispObject run (LispObject[] o) { return cdr((Cons)o[0]);                                     }};
+        intern("rplaca").value       = new LispSubr("rplaca")       { public LispObject run (LispObject[] o) { ((Cons)o[0]).car = o[1]; return o[0];                       }};
+        intern("rplacd").value       = new LispSubr("rplacd")       { public LispObject run (LispObject[] o) { ((Cons)o[0]).cdr = o[1]; return o[0];                       }};
+        intern("print").value        = new LispSubr("print")        { public LispObject run (LispObject[] o) { return print(o[0],(o.length>1)?(LispStream)o[1]:null);      }};
+        intern("eq?").value          = new LispSubr("eq?")          { public LispObject run (LispObject[] o) { return eq(o[0], o[1]);                                      }};
+        intern("atom?").value        = new LispSubr("atom?")        { public LispObject run (LispObject[] o) { return atom(o[0]);                                          }};
+        intern("set").value          = new LispSubr("set")          { public LispObject run (LispObject[] o) { return ((Symbol)o[0]).value = o[1];                         }};
+        intern("eval").value         = new LispSubr("eval")         { public LispObject run (LispObject[] o) { return eval(o[0]);                                          }};
+        intern("symbols").value      = new LispSubr("symbols")      { public LispObject run (LispObject[] o) { return symbols();                                           }};
+        intern("symbol-value").value = new LispSubr("symbol-value") { public LispObject run (LispObject[] o) { return symbolValue((Symbol)o[0]);                           }};
+        intern("gensym").value       = new LispSubr("gensym")       { public LispObject run (LispObject[] o) { return gensym();                                            }};
+        intern("+").value            = new LispSubr("+")            { public LispObject run (LispObject[] o) { return ((LispNumber)o[0]).add((LispNumber)o[1]);            }};
+        intern("-").value            = new LispSubr("-")            { public LispObject run (LispObject[] o) { return ((LispNumber)o[0]).sub((LispNumber)o[1]);            }};
+        intern("*").value            = new LispSubr("*")            { public LispObject run (LispObject[] o) { return ((LispNumber)o[0]).mul((LispNumber)o[1]);            }};
+        intern("/").value            = new LispSubr("/")            { public LispObject run (LispObject[] o) { return ((LispNumber)o[0]).div((LispNumber)o[1]);            }};
+        intern("mod").value          = new LispSubr("mod")          { public LispObject run (LispObject[] o) { return ((LispInteger)o[0]).mod((LispInteger)o[1]);          }};
+        intern("ash").value          = new LispSubr("ash")          { public LispObject run (LispObject[] o) { return ((LispInteger)o[0]).ash((LispInteger)o[1]);          }};
+        intern("eql?").value         = new LispSubr("eql?")         { public LispObject run (LispObject[] o) { return eql(o[0], o[1]);                                     }};
+        intern("=").value            = new LispSubr("=")            { public LispObject run (LispObject[] o) { return ((LispNumber)o[0]).equals((LispNumber)o[1])?t:null;  }};
+        intern("exit").value         = new LispSubr("exit")         { public LispObject run (LispObject[] o) { System.exit(((LispFixnum)o[0]).toJavaInt()); return null;   }};
+        intern("read").value         = new LispSubr("read")         { public LispObject run (LispObject[] o) {
+            try { return read((o.length > 0) ? (LispStream)o[0] : null); } catch (IOException e) {} return null;}};
+    }
+
+    public static void main(String args[])
+    {
+        initEnvironment();
+
+        while (true)
+        // REPL
+            try { while (true) print(eval(read(null)), null); }
+            catch (IOException e) { System.out.println("Caught an exceptional IOException: " + e); }
+            catch (Exception e) { System.out.println("\u0007*** Caught en exceptional exception: " + e + "\nrestarting REPL..."); }
+    }
+}
+
+class LispObject { public void printObject(LispStream stream) { stream.printJavaString(this.toString()); } }
+
+abstract class LispSubr extends LispObject
+{
+    private String name;
+    public LispSubr(String name) { this.name = name; }
+    public abstract LispObject run(LispObject[] objects);
+    public String toString() { return "#<subr " + name + ">"; }
+}
+
+class Cons extends LispObject
+{
+    public LispObject car;
+    public LispObject cdr;
+
+    public Cons(LispObject car, LispObject cdr) { this.car = car; this.cdr = cdr; }
+
+    // TODO: Using StringBuilder here might speed up
+    // FIXME: Convert tail recursion to looping (avoid blowing stack up)
+    private static String toStringHelper(Cons list, String acc)
+    {
+        return (list.cdr == null)          ? acc + ljsp.toStringOrNull(list.car) : 
+              !(list.cdr instanceof Cons)  ? acc + ljsp.toStringOrNull(list.car) + " . " + list.cdr.toString() : // Handle dotted lists
+                                             toStringHelper((Cons)list.cdr, acc + ljsp.toStringOrNull(list.car) + " ");
+    }
+    
+    public String toString() { return "(" + toStringHelper(this, "") + ")"; }
+
+    public int length() { int i = 0; for (Cons c = this; c != null; c = (Cons)c.cdr) ++i; return i; } // TODO: Use long here?
+}
+
+class Symbol extends LispObject
+{
+    private static Cons symbols = null;
+    public static Cons getSymbols() { return symbols; }
+
+    public static Symbol findSymbol(String str) { return findSymbol(str, symbols); }
+    private static Symbol findSymbol(String str, Cons list)
+    {
+        if (list == null)                            return null;
+        else if (str.equals(((Symbol)list.car).str)) return (Symbol)list.car;
+        else                                         return findSymbol(str, (Cons)list.cdr);
+    }
+
+    public LispObject value;
+    private String str;
+    private boolean interned;
+
+    public String getStr() { return this.str; }
+
+    public Symbol intern()
+    {
+        if (this.interned)
+            return this;
+
+        Symbol sbl;
+        if ((sbl = findSymbol(this.str)) == null)
+        {
+            symbols = new Cons(this, symbols);
+            this.interned = true;
+            return this;
+        }
+        else
+            return sbl;
+    }
+
+    public Symbol(String str) { this.str = str; this.interned = false; }
+
+    public String toString()
+    {
+        if (this.interned)
+            return this.str;
+        else
+            return "#:" + this.str;
+    }
+}
+
+// Numerical tower, a.k.a. royal pain to implement nicely
+abstract class LispNumber extends LispObject
+{
+    public static LispNumber parse(String str) { return LispInteger.parse(str); } // TODO: Be smart and choose proper subclass
+    
+    public abstract LispNumber add(LispNumber n);
+    public abstract LispNumber sub(LispNumber n);
+    public abstract LispNumber mul(LispNumber n);
+    public abstract LispNumber div(LispNumber n);
+
+    public abstract boolean equals(LispNumber n);
+
+    public abstract int toJavaInt();
+}
+
+abstract class LispInteger extends LispNumber
+{
+    public static LispInteger parse(String str) { return LispFixnum.parse(str); } // TODO: be smart choose proper subclass
+
+    public abstract LispInteger mod(LispInteger n); 
+    public abstract LispInteger ash(LispInteger n);
+}
+
+// class LispBignum extends LispInteger
+// {
+// }
+
+class LispFixnum extends LispInteger
+{
+    private long n;
+
+    public static LispFixnum parse(String str) { return new LispFixnum(Integer.parseInt(str)); }
+    private LispFixnum(long nbr) { n = nbr; }
+    
+    public LispNumber add(LispFixnum nbr) { LispFixnum res; (res = new LispFixnum(n)).n += nbr.n; return res; } // TODO: handle overflow
+    public LispNumber sub(LispFixnum nbr) { LispFixnum res; (res = new LispFixnum(n)).n -= nbr.n; return res; } // TODO: handle overflow
+    public LispNumber mul(LispFixnum nbr) { LispFixnum res; (res = new LispFixnum(n)).n *= nbr.n; return res; } // TODO: handle overflow
+    public LispNumber div(LispFixnum nbr) { LispFixnum res; (res = new LispFixnum(n)).n /= nbr.n; return res; } // TODO: RATIONAAAALS?
+    public LispInteger mod(LispFixnum nbr) { LispFixnum res; (res = new LispFixnum(n)).n %= nbr.n; return res; } // Can impossibly overflow
+    public LispInteger ash(LispFixnum nbr)
+    {
+        LispFixnum res = new LispFixnum(n);
+        if (nbr.n > 0) res.n <<= nbr.n;                     // TODO: handle overflow to the left
+        else           res.n >>= -nbr.n;                    // Can impossibly overflow
+        return res;
+    }
+
+    public LispNumber add(LispNumber nbr) { return add((LispFixnum)nbr); } // TODO: Add intelligence
+    public LispNumber sub(LispNumber nbr) { return sub((LispFixnum)nbr); } // TODO: Add intelligence
+    public LispNumber mul(LispNumber nbr) { return mul((LispFixnum)nbr); } // TODO: Add intelligence
+    public LispNumber div(LispNumber nbr) { return div((LispFixnum)nbr); } // TODO: Add intelligence! RATIONAAAAAALS!
+    public LispInteger mod(LispInteger nbr) { return mod((LispFixnum)nbr); } // TODO: Add intelligence
+    public LispInteger ash(LispInteger nbr) { return ash((LispFixnum)nbr); } // TODO: Add intelligence
+    public boolean equals(LispNumber nbr) { return n == ((LispFixnum)nbr).n; } // TODO: Add intelligence
+    
+    public String toString() { return "" + n; }
+
+    public int toJavaInt() { return (int)n; }
+}
+
+// class LispRatio extends LispNumber
+// {
+// }
+
+class LispStream extends LispObject
+{
+    private BufferedReader inputStream;
+    private PrintStream outputStream;
+    private Stack<Character> pushbackStack;
+
+    public LispStream(InputStream inputStream, OutputStream outputStream)
+    {
+        try { this.inputStream  = (inputStream  != null) ? new BufferedReader(new InputStreamReader(inputStream, "UTF-8")) : null; } catch (UnsupportedEncodingException e) {}
+        this.outputStream = (outputStream != null) ? new PrintStream(outputStream) : null;
+        if (inputStreamP()) pushbackStack = new Stack<Character>();
+    }
+
+    public void printJavaString(String str) { outputStream.print(str); } // Throws NullPointerException when not outputstream FIXME?
+    public void terpri()                    { outputStream.println();  } // Throws NullPointerException when not outputstream FIXME?
+
+    public char readJavaChar() throws IOException           // Throws NullPointerException when not inputstream FIXME?
+    {
+        if (pushbackStack.empty()) return (char)inputStream.read();
+        else                       return pushbackStack.pop();
+    }
+    public char readJavaCharSkipComments() throws IOException // THIS FN IS MOST LIKELY UNNECCESARY
+    {
+        char res = readJavaChar();
+        if (res == ';') {
+            while (readJavaChar() != '\n');
+            res = readJavaChar(); }
+        return res;
+    }
+    public char peekJavaChar() throws IOException           // Throws NullPointerException when not inputstream FIXME?
+    {
+        if (pushbackStack.empty()) return pushbackStack.push((char)inputStream.read());
+        else                       return pushbackStack.peek();
+    }
+    public void unreadJavaChar(char ch) { pushbackStack.push(ch); } // Throws NullPointerException when not inputstream FIXME?
+    // public void skipWhiteSpace() throws IOException { while (Character.isWhitespace(peekJavaChar())) readJavaChar(); }
+    public void skipWhiteSpace() throws IOException { char tmp; while (Character.isWhitespace(tmp = readJavaChar())); unreadJavaChar(tmp); }
+    
+    public boolean inputStreamP()  { return (inputStream  != null) ? true : false; }
+    public boolean outputStreamP() { return (outputStream != null) ? true : false; }
+
+    // TODO: Make reader(s) Better(TM)... maybe...
+    // FIXME: Superfluous ending paren causes infinite loop
+
+    // Messssssssy
+    private Cons readList() throws IOException
+    {
+        Cons list, last;
+        this.readJavaChar();                                // Discard one character (should be '(')
+        this.skipWhiteSpace();
+        char ch = this.peekJavaChar();
+        if (ch == ')')
+        { // Empty list
+            this.readJavaChar();                            // Discard ')'
+            return null;
+        }
+        // First iteration of loop is wierd, and thus unrolled
+        list = last = new Cons(this.read(), null); 
+        this.skipWhiteSpace();
+        ch = this.peekJavaChar();
+        while (ch != ')')
+        {
+            if (ch == '.')
+            { // Handle dotted lists, wee!
+                this.readJavaChar();                        // Discard '.'
+                this.skipWhiteSpace();
+                ch = this.peekJavaChar();
+                if (ch == ')') throw new RuntimeException("You now have me confuzzled, don't you want something after the dot?");
+                last.cdr = this.read();
+                this.skipWhiteSpace();
+                if (this.peekJavaChar() != ')') throw new RuntimeException("You just might want to end the list with parentheses, even though you're a prick.");
+                break;
+            }
+
+            last = (Cons)(last.cdr = new Cons(this.read(), null));
+            this.skipWhiteSpace();
+            ch = this.peekJavaChar();
+        }
+        this.readJavaChar();                                // Discard ')'
+        return list;
+    }
+
+    private Symbol readSymbol() throws IOException
+    {
+        StringBuilder sb = new StringBuilder();
+        char ch = this.readJavaChar();
+        while (!Character.isWhitespace(ch) && ch != '(' && ch != ')')
+        {
+            sb.append(ch);
+            ch = this.readJavaChar();
+        }
+        this.unreadJavaChar(ch);
+        return new Symbol(sb.toString()).intern();
+    }
+
+    private LispNumber readNumber() throws IOException
+    {
+        StringBuilder sb = new StringBuilder();
+        char ch = this.readJavaChar();
+        while (Character.isDigit(ch) || ch == '-' || ch == '.' || ch == 'e')
+        {
+            sb.append(ch);
+            ch = this.readJavaChar();
+        }
+        this.unreadJavaChar(ch);
+        return LispNumber.parse(sb.toString());
+    }
+
+    // TODO: Comments and other forms of love
+    // FIXME: Things starting with numbers but not qualifying as numbers should be read as symbols
+    //        superfluous ending paren results in endless loop
+    public LispObject read() throws IOException
+    {
+        if (!this.inputStreamP()) throw new RuntimeException("You can't read what you can't read man, get over it.");
+
+        this.skipWhiteSpace();
+        char ch = this.peekJavaChar();
+        switch (ch)
+        {
+            case '(':
+                return this.readList();
+            case '-':                                       // Messssy 
+                this.readJavaChar();                        // Discard
+                char ch2 = this.peekJavaChar();
+                this.unreadJavaChar(ch);                    // Put it back
+                if (!Character.isDigit(ch2)) return this.readSymbol();
+            case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+                return this.readNumber();
+            default:
+                return this.readSymbol(); 
+        }
+    }
+}

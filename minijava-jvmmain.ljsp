@@ -1,0 +1,11 @@
+;-*- Mode: Lisp -*-
+
+(require 'minijava)
+
+(defun jvmmain (filename)
+  (send EmitJasmin 'emit
+        (send SemanticAnalysis 'analyse
+              (send Util 'parse (send FileReader 'newInstance filename)))))
+
+
+(provide 'minijava-jvmmain)

@@ -1,0 +1,97 @@
+;-*- Mode: Lisp -*-
+
+(require 'stuff)
+
+(defvar *tokens* nil)
+
+(defvar *sym* nil)
+
+(defun getsym ()
+  (setq *tokens* (cdr *tokens*))
+  (setq *sym* (car *tokens*))
+  nil)
+
+
+(defun accept (s)
+  (cond ((eq? *sym* s)
+         (getsym)
+         t)
+        (t
+         nil)))
+
+(defun expect (s)
+  (if (accept s)
+      t
+      (error (with-output-to-string (*standard-output*)
+               (write-string "expect: unexpected symbol: ")
+               (prin1 *sym*)))))
+
+(defun pars (tokens)
+  (let ((*tokens* tokens)
+        (*sym* (car tokens)))
+    (TOP)))
+
+(defun TOP ()
+  (let ((a (E)))
+    (expect 'GIVING)
+    (expect 'IDENT)
+    (expect '())
+    (append a '(GIVING IDENT))))
+
+(defun E ()
+  (list 'E (F) (Ep)))
+
+(defun Ep ()
+  (list* 'Ep
+         (if (accept 'PLUS)
+             (list 'PLUS (E))
+             nil)))
+
+(defun F ()
+  (list 'F (T) (Fp)))
+
+(defun Fp ()
+  (list* 'Fp
+        (if (accept 'TIMES)
+            (list 'TIMES (F))
+            nil)))
+
+;; (defun T ()
+;;   (list 'T
+;;         (cond ((accept 'LITERAL) 'LITERAL)
+;;               ((accept 'IDENT) 'IDENT)
+;;               (t (error "eRROLRO")))))
+
+(defun T ()
+  (list 'T
+        (cond ((accept 'LITERAL) 'LITERAL)
+              ((accept 'IDENT) 'IDENT)
+              ((accept 'QUI) (let ((a (E)))
+                               (expect 'QUE)
+                               a))
+              (t (error "eRROLRO")))))
+
+
+
+
+
+
+(provide 'parsilja)
+
+         
+      
+
+;; (defun E (lst)
+;;   (cons (F (car lst)) (Ep (cdr lst))))
+
+;; (defun Ep (lst)
+;;   (cond ((= (length lst) 0) nil)
+;;         ((eq? (car lst) '+) (cons '+ (E (cdr lst))))
+;;         (t (error "FAIL"))))
+
+;; (defun F (lst)
+;;   lst)
+    
+
+
+

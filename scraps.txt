@@ -1,0 +1,413 @@
+**       * Compare numbers using a method similar to compareTo? (implement neg? and plus? as subrs and then do the rest in lisp)
+**            (defun < (a b) (neg? (- a b))) or similar
+**       * Compare numbers implementing just two comparisons (== and < or <= or similar) then bootstrap the rest from there?
+**       * eql? needn't be primitive, given more, other, primitives: type? or something
+**       * use long more?
+**       * maybe solve nil/null-deficiency by making readSymbol return null for symbol nil (instead of the other path to make
+**         nil separate from null, which caused java type mayhem)
+        
+        Symbol tjosan = intern("tjosan");
+        Symbol fikon = intern("FiKoN");
+        Symbol mongon = intern("MONGON");
+        LispNumber hej = LispNumber.parse("34");
+        LispNumber tjo = LispNumber.parse("11");
+
+        System.out.println(hej.getClass() + " " + tjo.getClass());
+        
+        tjosan.value = cons(fikon, mongon);
+        
+        Cons c = cons(tjosan, cons(cons(fikon, mongon), cons(tjosan, null)));
+        print(c, null);
+
+        c = cons(new Symbol("fiskon"), cons(t, cons(mongon, cons(cons(tjosan,cons(hej,tjo)), fikon))));
+        print(c, null);
+        hej = hej.add(tjo);
+        print(c, null);
+        print(hej, null);
+
+        print(tjosan.value, null);
+        
+        print(symbols(), null);
+
+        Symbol print = Symbol.findSymbol("print");
+        Symbol cons  = Symbol.findSymbol("cons");
+        Symbol car   = Symbol.findSymbol("car");
+        Symbol cdr   = Symbol.findSymbol("cdr");
+        Cons list = cons(print, cons(cons(cons,cons(t,cons(cons(quote, cons(tjosan, null)),null))), null));
+        print(list, null);
+        eval(list);
+        // print(list, null);
+        // print(eval(list), null);
+        list = cons(cons, cons(tjosan, cons(hej, null)));
+        print(list, null);
+        print(eval(list), null);
+        list = cons(car, cons(cons(quote, cons(c, null)), null));
+        print(list, null);
+        print(eval(list), null);
+
+
+        
+(set (quote calc-fib)
+     (lambda (n a b)
+       (if (= n 0)
+           a
+           (calc-fib (- n 1) b (+ a b)))))
+
+(set (quote fib-trec)
+     (lambda (n)
+       (calc-fib n 0 1)))
+       
+    // // TODO: Reimplement stack with java arrays or ArrayList for teh speeds
+    // private static Cons stack = new Cons(null, null);
+    // private static final void saveEnvironment() { stack = new Cons(null, stack); }
+    // private static final void restoreEnvironment() {
+    //     for (Cons c = (Cons)stack.car; c != null; c = (Cons)c.cdr) {
+    //         Cons pair = (Cons)c.car;
+    //         ((Symbol)pair.car).value = pair.cdr; }
+    //     stack = (Cons)stack.cdr; }
+    // private static final void bind(Symbol sbl, LispObject value) {
+    //     LispObject oldValue = sbl.value;
+    //     sbl.value = value;
+    //     for (Cons c = (Cons)stack.car; c != null; c = (Cons)c.cdr) if (((Cons)c.car).car == sbl) return; // Avoid making buried bindings
+    //     stack.car = new Cons(new Cons(sbl, oldValue), stack.car); }
+
+    // private static int stackSize = -1;
+    // private static Cons[] stack = new Cons[8192];
+    // private static final void saveEnvironment() { ++stackSize; }
+    // private static final void restoreEnvironment() {
+    //     for (Cons c = stack[stackSize]; c != null; c = (Cons)c.cdr) {
+    //         Cons pair = (Cons)c.car;
+    //         ((Symbol)pair.car).value = pair.cdr; }
+    //     stack[stackSize] = null;
+    //     --stackSize; }
+    // private static final void bind(Symbol sbl, LispObject value) {
+    //     LispObject oldValue = sbl.value;
+    //     sbl.value = value;
+    //     for (Cons c = stack[stackSize]; c != null; c = (Cons)c.cdr) if (((Cons)c.car).car == sbl) return;  // Avoid making buried bindings
+    //     stack[stackSize] = new Cons(new Cons(sbl, oldValue), stack[stackSize]); }
+
+                                // if (f1rst.car != flambda) {
+                                //     Cons lst, last;
+                                //     lst = last = new Cons(argList.car, null);
+                                //     for (Cons c = (Cons)argList.cdr; c != null; c = (Cons)c.cdr) {
+                                //         last.cdr = new Cons(evalHead(c.car))
+                                //     for (Cons c = argList; c != null; c = (Cons)c.cdr) c.car = evalHead(c.car);
+                                // for (Cons c = lambdaVars;; c = (Cons)c.cdr) {
+                                //     if (c.cdr == null) {
+                                //         if (argList.cdr != null) throw new RuntimeException("Garh!!! Too many args or something! " + obj.toString());
+                                //         bind((Symbol)c.car, argList.car); break; }
+                                //     else if (!(c.cdr instanceof Cons)) { // A dotted list means a rest parameter 
+                                //         bind((Symbol)c.car, argList.car);
+                                //         bind((Symbol)c.cdr, argList.cdr);
+                                //         break; } 
+                                //     bind((Symbol)c.car, argList.car);
+                                //     argList = (Cons)argList.cdr; /* TODO: maybe check too few args here */ }
+
+                                
+private static final void saveEnvironment() { ++stackSize; /* stack[stackSize++] = null; */ }
+
+
+                                // int numArgs = (argList != null) ? argList.length() : 0;
+                                // if (lambdaVars.length() != numArgs) throw new RuntimeException("Garh!!! Wrong number of args or something!" + obj.toString());
+                                // LispObject[] args = new LispObject[numArgs];
+                                // int i = 0;
+                                // for (Cons c = argList; c != null; c = (Cons)c.cdr) // (dolist (c arg-list) ...)
+                                //     args[i++] = (f1rst.car == flambda) ? c.car : evalHead(c.car); // FIXME: Possible optimization: unroll if into two for-loops
+                                // i = 0;
+                                // for (Cons c = lambdaVars; c != null; c = (Cons)c.cdr) // (dolist (c lambda-vars) ...)
+                                //     bind((Symbol)c.car, args[i++]); 
+        // nil.value = null;                                   // FIXME: somehow make distinct from null
+    // public void skipWhiteSpace() throws IOException { while (Character.isWhitespace(peekJavaChar())) readJavaChar(); }
+    // public void skipWhiteSpace() throws IOException { char tmp; while (Character.isWhitespace(tmp = readJavaChar())); unreadJavaChar(tmp); } // Starts to feel unneccesary
+    public char readJavaCharSkipComments() throws IOException // THIS FN IS MOST LIKELY UNNECCESARY
+    {
+        char res = readJavaChar();
+        if (res == ';') {
+            while (readJavaChar() != '\n');
+            res = readJavaChar(); }
+        return res;
+    }
+
+                // case '-':                                       // Messssy 
+            //     this.readJavaChar();                        // Discard
+            //     char ch2 = this.peekJavaChar();
+            //     this.unreadJavaChar(ch);                    // Put it back
+            //     if (!Character.isDigit(ch2)) return this.readSymbol(); // else fall through
+            // case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+            //     return this.readNumber();
+//            default:
+                // return this.readSymbol(); 
+
+cdr
+
+    private Symbol readSymbol() throws IOException {
+        StringBuilder sb = new StringBuilder();
+        char ch = this.readJavaChar();
+        while (!Character.isWhitespace(ch) && ch != '(' && ch != ')') {
+            sb.append(ch);
+            ch = this.readJavaChar();
+        }
+        this.unreadJavaChar(ch);
+        return sb.toString().equals("nil") ? null : new Symbol(sb.toString()).intern(); } // This stems from me being unable to separate nil from java null
+        
+    private LispNumber readNumber() throws IOException {
+        StringBuilder sb = new StringBuilder();
+        char ch = this.readJavaChar();
+        while (Character.isDigit(ch) || ch == '-' || ch == '.' || ch == 'e') {
+            sb.append(ch);
+            ch = this.readJavaChar(); }
+        this.unreadJavaChar(ch);
+        return LispNumber.parse(sb.toString()); }
+;; FIXME: NOT COMPILABLE IN CURRENT STATE
+;;        It isn't even working at all -.-
+;; Maybe make this a fexpr?
+;; Maybe have it primitive (as many other lisps do)?
+;; GOT FIXED A BIT LONGER DOWN
+#;(defmacro apply (a)
+  (let ((fn   (cadr a))
+        (args (cddr a))
+        (roop (lambda (lst) ; NOT TAIL RECURSIVE
+                (if (end? (cdr lst))
+                    (car lst)
+                    (cons (car lst) (roop (cdr lst)))))))
+    (let ((args (if (cdr args)
+                    (roop args)
+                    (car args))))
+      (cons fn args))))
+
+ // Cons evalledArgs, last;
+ // if (f1rst.car != flambda) {
+ //     evalledArgs = last = new Cons(evalHead(argList.car), null);
+ //     for (Cons c = (Cons)argList.cdr; c != null; c = (Cons)c.cdr)
+ //         last = (Cons)(last.cdr = new Cons(evalHead(c.car), null)); }
+ // else /* if (f1rst.car == flambda) */
+ //     evalledArgs = argList;  // No evalling args (nor copying) for fexpr
+
+ #;(set (quote setq)
+     (let ((sym-1 (gensym))
+           (sym-2 (gensym)))
+       (list (quote flambda) (list sym-1 sym-2)
+             (list (quote set) sym-1 (list (quote eval) sym-2)))))
+
+;; (set (quote 1-) (lambda (n) (- n 1)))
+;; (set (quote 1+) (lambda (n) (+ n 1)))
+
+;; REPLACEME with a vararg function
+;; NOT TAIL RECURSIVE
+#;(defmacro list (a)
+  ((lambda (list-cons) (list-cons (cdr a)))
+   (lambda (lst)
+     (if (end? lst)
+         (quote nil)
+         (cons (quote cons) (cons (car lst) (cons (list-cons (cdr lst)) nil)))))))
+
+;; REPLACEME with a vararg function
+;; NOT TAIL RECURSIVE
+#;(defmacro list* (a)
+  ((lambda (list*-cons) (list*-cons (cdr a)))
+   (lambda (lst)
+     (if (end? (cdr lst))
+         (car lst)
+         (cons (quote cons) (cons (car lst) (cons (list*-cons (cdr lst)) nil)))))))
+
+
+         import java.lang.Exception;
+import java.lang.RuntimeException;
+import java.util.Scanner;
+import java.io.OutputStream;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.io.IOException;
+import java.lang.StringBuilder;
+import java.util.Stack;
+import java.util.ArrayList;
+import java.math.BigInteger;
+import java.util.regex.Pattern;
+
+
+                        LispSubr subr = (LispSubr)first;
+                        LispObject[] objects = new LispObject[list.length()];
+                        int i = 0;
+                        for (Cons c = (Cons)list.cdr; c != null; c = (Cons)c.cdr) // (dolist (c (cdr list)) ...)
+                            objects[i++] = evalHead(c.car);                       
+                        return subr.apply(objects); }
+
+
+abstract class LispSubr extends LispObject {
+    private String name;
+    private int minArgs, maxArgs;
+    public LispSubr(String name) { this(name, 0, Integer.MAX_VALUE); } // FIXME: Don't know if this constructor will see much use
+    public LispSubr(String name, int numArgs) { this(name, numArgs, numArgs); }
+    public LispSubr(String name, int minArgs, int maxArgs) { this.name = name; this.minArgs = minArgs; this.maxArgs = maxArgs; }
+    public final LispObject apply(LispObject[] o) {
+        if (o.length < minArgs) throw new RuntimeException("Too few args when calling subr: "  + name);
+        if (o.length > maxArgs) throw new RuntimeException("Too many args when calling subr: " + name);
+        return subr(o); }
+    public abstract LispObject subr(LispObject[] objects);
+    public String toString() { return "#<subr " + name + ">"; }
+}
+                    else if (first instanceof JavaObject) 
+                        // (apply first (eval-head (cadr list)) nil)
+                        return ((JavaObject)first).apply((Symbol)evalHead(((Cons)list.cdr).car));
+                    else if (first instanceof JavaMethod) 
+                        // (apply first (evlis-array (cdr list)))
+                        return ((JavaMethod)first).apply(evlisArray((Cons)list.cdr)); 
+
+                        final class JavaClass extends Procedure {
+    private final Class klas;
+    public JavaClass(Class klas) { super(klas.toString(), 1); this.klas = klas; }
+    public JavaMethod run(LispObject[] o) {
+        return new JavaMethod(klas, methods.toArray());
+    }
+    public String toString() { return "#<java-class " + klas ">" }
+}
+// This is more of an adaptor than anything else, another solution would be
+// to map symbols to JavaMethods, were the JavaMethods themselves would contain a list of Methods.
+// Pros of such a method: Specialize dispatch easier in ways java wouldn't think. 
+// class JavaClass extends LispObject {
+//     private Class klas;
+//     public JavaClass(Class klas) { this.klas = klas; }
+//     public JavaMethod getMethod(Symbol sbl) { return new JavaMethod(sbl.getStr(), klas); }}
+
+    // private Object[] lispToJava(LispObject[] objs) {
+    //     Object[] res = new Object[objs.length];
+    //     for (int i = 0; i < objs.length; ++i)
+    //         res[i] = (objs[i] == null)               ? null :
+    //                  (objs[i] instanceof LispFixnum) ? ((LispFixnum)objs[i]).toJavaLong() :
+    //                  (objs[i] instanceof LispBignum) ? ((LispBignum)objs[i]).toJavaBigInteger() :
+    //                  (objs[i] instanceof LispFlonum) ? ((LispFlonum)objs[i]).toJavaDouble() :
+    //                  (objs[i] instanceof Symbol)     ? ((Symbol)objs[i]).getStr() : // Strings here when they exist
+    //                                                    ((JavaObject)objs[i]).getObj();
+    //     return res; }
+
+    public  static JavaObject makeListener(final LispObject obj) {
+        // if (obj instanceof Cons && ((Cons)obj).car == lambda || obj instanceof Procedure) 
+        return new JavaObject(new ActionListener() { public void actionPerformed(ActionEvent e) { evalHead(cons(obj, cons(new JavaObject(e), null))); }});
+    }
+        try {
+        } catch (UnsupportedEncodingException e) { throw new RuntimeException(e); }
+    // private Class[] listToListOfClasses(Object[] list) {
+    //     Class[] res = new Class[list.length];
+    //     for (int i = 0; i < list.length; ++i)
+    //         res[i] = list[i].getClass();
+    //     return res; }
+                     // (objs[i] instanceof LispFixnum)                         ? ((LispFixnum)objs[i]).toJavaLong() :
+                     // (objs[i] instanceof LispFlonum)                         ? ((LispFlonum)objs[i]).toJavaDouble() :
+                     // (objs[i] instanceof LispBignum)                         ? ((LispBignum)objs[i]).toJavaBigInteger() :
+                     //                                                           ((JavaObject)objs[i]).getObj();
+            // return new JavaObject(new ActionListener() { public void actionPerformed(ActionEvent e) { evalHead(cons(o[0], cons(new JavaObject(e), null))); }});
+        // methodMap = new HashMap<Symbol,Method[]>();
+
+
+// Helper used in subrs with keyword arguments
+private static LispObject getf(LispObject place[], Symbol indicator) {
+    for (int i = 0; i < place.length; i += 2)
+        if (place[i] == indicator) return place[i];
+    return null; }
+    // TODO: Macros, done, but strangely. Maybe I should just go for fexprs and implement macros with them.
+    //         Maybe i should displace macros from java, as an optimization.
+    //       Should I make lambdas without any args use less stack? Is it possible?
+
+
+        private int matchMethod(LispObject[] lispArgs) {
+        for (Monstructor m: methods) System.out.println(m);
+        LinkedList<Integer> list = new LinkedList<Integer>();
+        for (int i = 0; i < methods.length; ++i) list.add(i);
+        ListIterator<Integer> it = list.listIterator();
+        System.out.println("1: " + list);
+        while (it.hasNext())                                // Prune all methods of insufficient length
+            if (methods[it.next()].getParameterTypes().length != lispArgs.length)
+                it.remove();
+        System.out.println("2: " + list);
+        if (list.isEmpty()) return -1;                  // No match
+        if (list.size() == 1) return list.getFirst();   // We have a match here (there was but one method of this length)
+        for (int argNumber = 0; argNumber < lispArgs.length; ++argNumber) { // Prune all methods that don't have a chance of matching
+            it = list.listIterator();
+            while (it.hasNext())       
+                if (!accept(methods[it.next()].getParameterTypes()[argNumber], lispArgs[argNumber]))
+                    it.remove();
+            System.out.println("3: " + list);
+            if (list.isEmpty()) return -1;                  // No match
+            if (list.size() == 1) return list.getFirst();   // We have a potential match here
+        }
+        for (int argNumber = 0; argNumber < lispArgs.length; ++argNumber) { // Find the most specific method of the matching methods
+            it = list.listIterator();
+            // Find the maximum (most specific) of all the argNumber'th method arguments classes
+            int max = list.getFirst();
+            int tmp;
+            while (it.hasNext())
+                max = argumentMoreSpecificThan(methods[tmp = it.next()].getParameterTypes()[argNumber], methods[max].getParameterTypes()[argNumber]) ? tmp : max;
+            it = list.listIterator();
+            // Remove all less specific methods.
+            while (it.hasNext())
+                if (methods[it.next()].getParameterTypes()[argNumber] != methods[max].getParameterTypes()[argNumber])
+                    it.remove();
+            System.out.println("4: " + list);
+            if (list.size() == 1) return list.getFirst();   // We have found our match
+        }
+        throw new LispException(ljsp.internalError, "This should not happen!"); /* Seriously, it shouldn't! */ }
+
+
+        // (objs[i] == null)                                       ? null :
+
+
+
+            private int matchMethod(LispObject[] lispArgs) {
+        for (Monstructor m: methods) System.out.println(m);
+        LinkedList<Integer> list = new LinkedList<Integer>();
+        for (int i = 0; i < methods.length; ++i) list.add(i);
+        ListIterator<Integer> it = list.listIterator();
+        while (it.hasNext())                                // Prune all methods of insufficient length
+            if (methods[it.next()].getParameterTypes().length != lispArgs.length)
+                it.remove();
+        if (list.isEmpty()) return -1;                  // No match
+        if (list.size() == 1) return list.getFirst();   // We have a match here (there was but one method of this length)
+        for (int argNumber = 0; argNumber < lispArgs.length; ++argNumber) { // Prune all methods that don't have a chance of matching
+            it = list.listIterator();
+            while (it.hasNext())       
+                if (!accept(methods[it.next()].getParameterTypes()[argNumber], lispArgs[argNumber]))
+                    it.remove();
+            if (list.isEmpty()) return -1;                  // No match
+            if (list.size() == 1) return list.getFirst();   // We have a potential match here
+        }
+        for (int argNumber = 0; argNumber < lispArgs.length; ++argNumber) { // Find the most specific method of the matching methods
+            it = list.listIterator();
+            // Find the maximum (most specific) of all the argNumber'th method arguments classes
+            int max = list.getFirst();
+            int tmp;
+            while (it.hasNext())
+                max = argumentMoreSpecificThan(methods[tmp = it.next()].getParameterTypes()[argNumber], methods[max].getParameterTypes()[argNumber]) ? tmp : max;
+            it = list.listIterator();
+            // Remove all less specific methods.
+            while (it.hasNext())
+                if (methods[it.next()].getParameterTypes()[argNumber] != methods[max].getParameterTypes()[argNumber])
+                    it.remove();
+            if (list.size() == 1) return list.getFirst();   // We have found our match
+        }
+        throw new LispException(ljsp.internalError, "This should not happen!"); /* Seriously, it shouldn't! */ }
+
+
+
+
+            // Conversion helpers, does the unboxing and boxing
+    private static Object[] lispToJava(LispObject[] objs, Class[] argt) {
+        Object[] res = new Object[objs.length];
+        for (int i = 0; i < objs.length; ++i)
+            // special case for object where we javaify no matter what
+            res[i] = // (objs[i] instanceof JavaObject)                         ? ((JavaObject)objs[i]).getObj() :
+                     (LispObject.class.isAssignableFrom(argt[i]))           ? objs[i] : // Wants a LispObject or subclass, no unboxing needed
+                     (objs[i] instanceof JavaObject)                        ? ((JavaObject)objs[i]).getObj() :
+                     (argt[i] == argt[i] == float.class  || argt[i] == Float.class)    ? ((LispFlonum)objs[i]).toJavaFloat() :
+                     (argt[i] == double.class || argt[i] == Double.class)   ? ((LispFlonum)objs[i]).toJavaDouble() :
+                     (argt[i] == int.class    || argt[i] == Integer.class)  ? ((LispInteger)objs[i]).toJavaInt() :
+                     (argt[i] == short.class  || argt[i] == Short.class)    ? new Short((short)((LispInteger)objs[i]).toJavaInt()) :
+                     (argt[i] == BigInteger.class)                          ? ((LispInteger)objs[i]).toJavaBigInteger() :
+                     (argt[i] == char.class || argt[i] == Character.class)  ? ((LispChar)objs[i]).ch :
+                     (argt[i] == long.class   || argt[i] == Long.class)     ? ((LispInteger)objs[i]).toJavaLong() :
+                     (argt[i] == Boolean.class || argt[i] == boolean.class) ? objs[i] != null :
+                     (argt[i] == String.class)                              ? ((LispString)objs[i]).toJavaString() :
+                                                                              objs[i]; 
+        return res; }

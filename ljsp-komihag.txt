@@ -1,0 +1,31 @@
+(send (send StringBuilder 'newInstance) 'append "flisk")
+sl�nger en exception!!!!
+fixa!
+
+borde inte detta ge true kanske? (gaar det att faa till)
+(send String 'isInstance (send String 'newInstance "bajs"))
+
+
+
+
+[region(r1,1,[3,4]),region(r2,3,[1,4,1,4,2]),region(r3,1,[3,4,4]),region(r4,2,[3,4]),region(r5,4,[3,1]),region(r6,$
+
+
+
+saker som kan beh�va uppdateras med hj�lpav module
+awk
+ar
+
+
+
+
+
+
+
+
+
+
+
+
+
+
