@@ -665,7 +665,7 @@
                             body
                             (emit-classfile-epilogue classname))
                     stream))
-    ;; HERE: compile the file just emitted too
+    ;; TODO HERE: compile the file just emitted using jasmin and load it automatically
     classname))
 
 (defun emit-progn (a e tail)            ; NOT TAIL RECURSIVE
