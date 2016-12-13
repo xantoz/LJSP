@@ -3,12 +3,12 @@ A minimal lisp interpreter (+ compiler stub) that runs on the JVM
 
 This is a very messy old project (almost 7 years old at the time of writing).
 I will introduce it somewhat: To begin with: the main files to look at is
-ljsp.java. The main file for bootstrapping the lisp environment is
-stuff.ljsp. If you want to have a look at how to instantiate and
-interact with java objects from within LJSP see: java.ljsp.
+`ljsp.java`. The main file for bootstrapping the lisp environment is
+`stuff.ljsp`. If you want to have a look at how to instantiate and
+interact with java objects from within LJSP see: `java.ljsp`.
 
 There are a lot of .j (jasmin) files that are committed. In fact most
-of these are actually compilation output (see: compile.ljsp) and
+of these are actually compilation output (see: `compile.ljsp`) and
 commiting them to git is a bit ugly, but as some are hand-generated
 mock-ups or tests of future plans for the compiler I elected to simply
 commit all of them.
@@ -39,5 +39,24 @@ scope outside the let not being callable from inside it.
 compiler and interpreter their semantics could be mostly brought in line with
 each other that way.)
 
-# How to fire up a REPL:
-Simple compile ljsp.java and then run ljsp.sh.
+## How to fire up a REPL:
+Simple compile ljsp.java:
+```
+make
+```
+and then:
+```
+ljsp.sh.
+```
+
+Or if you want to try out a graphical REPL-thingy:
+```
+listener.sh
+```
+
+I also implemented a very crude implementation of snake (the holes are
+a feature, not a bug!!). Simply type in any REPL:
+```
+(require 'snake)
+(snake)
+```
